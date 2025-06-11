@@ -40,7 +40,7 @@ pip install -r requirements.txt
 python app.py
 ```
 
-4. Truy cập ứng dụng tại: `http://localhost:5000`
+4. Truy cập ứng dụng tại: `http://localhost:5000`,`http://localhost:5000/receiver`
 
 ## Cấu trúc dự án
 
@@ -89,23 +89,3 @@ digital-signature-app/
 - Không lưu trữ thông tin nhạy cảm
 - Xử lý file an toàn
 - Bảo vệ chống tấn công XSS và CSRF
-
-## Đóng góp
-
-Mọi đóng góp đều được hoan nghênh! Vui lòng:
-
-1. Fork repository
-2. Tạo branch mới (`git checkout -b feature/AmazingFeature`)
-3. Commit thay đổi (`git commit -m 'Add some AmazingFeature'`)
-4. Push lên branch (`git push origin feature/AmazingFeature`)
-5. Tạo Pull Request
-
-## Giấy phép
-
-Dự án này được cấp phép theo MIT License - xem file [LICENSE](LICENSE) để biết thêm chi tiết.
-
-## Liên hệ
-
-Tên của bạn - [@your_twitter](https://twitter.com/your_twitter) - email@example.com
-
-Link dự án: [https://github.com/yourusername/digital-signature-app](https://github.com/yourusername/digital-signature-app) 
