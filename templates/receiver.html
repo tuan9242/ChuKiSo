@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trang Nhận File</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+</head>
+<body>
+    <div class="background-animation"></div>
+    <div class="container" data-aos="fade-up">
+        <div class="header">
+            <i class="fas fa-download header-icon"></i>
+            <h1>Trang Nhận File</h1>
+        </div>
+        
+        <div class="download-section" data-aos="fade-up" data-aos-delay="100">
+            <div class="section-header">
+                <i class="fas fa-list section-icon"></i>
+                <h2>Danh sách file</h2>
+            </div>
+            <div class="file-list">
+                <div class="file-list-header">
+                    <h3>File có sẵn để tải xuống:</h3>
+                    <button class="refresh-btn" onclick="loadFileList()">
+                        <i class="fas fa-sync-alt"></i>
+                        Làm mới
+                    </button>
+                </div>
+                <div class="file-list-container">
+                    <ul id="fileList"></ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="verify-section" data-aos="fade-up" data-aos-delay="200">
+            <div class="section-header">
+                <i class="fas fa-shield-alt section-icon"></i>
+                <h2>Xác thực chữ ký</h2>
+            </div>
+            <form id="verifyForm" enctype="multipart/form-data" class="verify-form">
+                <div class="form-group">
+                    <label for="verifyFile">
+                        <i class="fas fa-file-upload"></i>
+                        Chọn file cần xác thực:
+                    </label>
+                    <div class="file-input-wrapper">
+                        <input type="file" id="verifyFile" name="file" required>
+                        <label for="verifyFile" class="file-input-label">
+                            <i class="fas fa-file-upload"></i>
+                            <span>Chọn file hoặc kéo thả vào đây</span>
+                        </label>
+                    </div>
+                    <div class="file-info" id="verifyFileInfo"></div>
+                </div>
+
+                <div class="form-group">
+                    <label for="signature">
+                        <i class="fas fa-signature"></i>
+                        Chữ ký:
+                    </label>
+                    <div class="input-group">
+                        <input type="text" id="signature" name="signature" required 
+                               placeholder="Dán chữ ký vào đây">
+                        <button type="button" class="paste-btn" onclick="pasteFromClipboard('signature')">
+                            <i class="fas fa-paste"></i>
+                            Dán
+                        </button>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="publicKey">
+                        <i class="fas fa-key"></i>
+                        Public Key:
+                    </label>
+                    <div class="input-group">
+                        <textarea id="publicKey" name="public_key" required 
+                                  placeholder="Dán public key vào đây"></textarea>
+                        <button type="button" class="paste-btn" onclick="pasteFromClipboard('publicKey')">
+                            <i class="fas fa-paste"></i>
+                            Dán
+                        </button>
+                    </div>
+                </div>
+
+                <button type="submit" class="submit-btn">
+                    <i class="fas fa-check-circle"></i>
+                    Xác thực
+                </button>
+            </form>
+            <div id="verifyResult" class="result-section"></div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        // Khởi tạo AOS
+        AOS.init({
+            duration: 800,
+            once: true
+        });
+
+        // Xử lý kéo thả file
+        const dropZone = document.querySelector('.file-input-wrapper');
+        const fileInput = document.getElementById('verifyFile');
+        const fileInfo = document.getElementById('verifyFileInfo');
+
+        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, preventDefaults, false);
+        });
+
+        function preventDefaults(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        }
+
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, highlight, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, unhighlight, false);
+        });
+
+        function highlight(e) {
+            dropZone.classList.add('highlight');
+        }
+
+        function unhighlight(e) {
+            dropZone.classList.remove('highlight');
+        }
+
+        dropZone.addEventListener('drop', handleDrop, false);
+
+        function handleDrop(e) {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            fileInput.files = files;
+            updateFileInfo(files[0]);
+        }
+
+        fileInput.addEventListener('change', function() {
+            updateFileInfo(this.files[0]);
+        });
+
+        function updateFileInfo(file) {
+            if (file) {
+                fileInfo.innerHTML = `
+                    <div class="file-info-content">
+                        <i class="fas fa-file"></i>
+                        <span>${file.name}</span>
+                        <span class="file-size">(${(file.size / 1024).toFixed(2)} KB)</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Lấy danh sách file
+        async function loadFileList() {
+            const refreshBtn = document.querySelector('.refresh-btn');
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang tải...';
+            refreshBtn.disabled = true;
+
+            try {
+                const response = await fetch('/files');
+                const files = await response.json();
+                const fileList = document.getElementById('fileList');
+                
+                if (files.length === 0) {
+                    fileList.innerHTML = `
+                        <li class="no-files">
+                            <i class="fas fa-info-circle"></i>
+                            Không có file nào
+                        </li>
+                    `;
+                } else {
+                    fileList.innerHTML = files.map(file => `
+                        <li>
+                            <div class="file-item">
+                                <i class="fas fa-file"></i>
+                                <span class="file-name">${file}</span>
+                            </div>
+                            <div class="file-actions">
+                                <button onclick="selectFileForVerification('${file}')" class="verify-btn">
+                                    <i class="fas fa-shield-alt"></i>
+                                    Xác thực
+                                </button>
+                                <a href="/download/${file}" class="download-btn">
+                                    <i class="fas fa-download"></i>
+                                    Tải xuống
+                                </a>
+                            </div>
+                        </li>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('Lỗi khi tải danh sách file:', error);
+                fileList.innerHTML = `
+                    <li class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Lỗi khi tải danh sách file
+                    </li>
+                `;
+            } finally {
+                refreshBtn.innerHTML = '<i class="fas fa-sync-alt"></i> Làm mới';
+                refreshBtn.disabled = false;
+            }
+        }
+
+        // Xác thực chữ ký
+        document.getElementById('verifyForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData();
+            formData.append('file', document.getElementById('verifyFile').files[0]);
+            formData.append('signature', document.getElementById('signature').value);
+            formData.append('public_key', document.getElementById('publicKey').value);
+
+            const submitBtn = document.querySelector('.submit-btn');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Đang xác thực...';
+            submitBtn.disabled = true;
+
+            try {
+                const response = await fetch('/verify', {
+                    method: 'POST',
+                    body: formData
+                });
+                const data = await response.json();
+                
+                document.getElementById('verifyResult').innerHTML = `
+                    <div class="${data.is_valid ? 'success-message' : 'error-message'}">
+                        <i class="fas fa-${data.is_valid ? 'check-circle' : 'exclamation-circle'}"></i>
+                        ${data.message}
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('verifyResult').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Lỗi khi xác thực: ${error.message}
+                    </div>
+                `;
+            } finally {
+                submitBtn.innerHTML = '<i class="fas fa-check-circle"></i> Xác thực';
+                submitBtn.disabled = false;
+            }
+        });
+
+        // Hàm dán từ clipboard
+        async function pasteFromClipboard(elementId) {
+            try {
+                const text = await navigator.clipboard.readText();
+                document.getElementById(elementId).value = text;
+                
+                const button = document.querySelector(`#${elementId}`).nextElementSibling;
+                const originalText = button.querySelector('span').textContent;
+                button.querySelector('span').textContent = 'Đã dán!';
+                button.classList.add('pasted');
+                
+                setTimeout(() => {
+                    button.querySelector('span').textContent = originalText;
+                    button.classList.remove('pasted');
+                }, 2000);
+            } catch (error) {
+                console.error('Lỗi khi dán từ clipboard:', error);
+            }
+        }
+
+        // Thêm hàm mới để xử lý việc chọn file để xác thực
+        async function selectFileForVerification(filename) {
+            try {
+                const response = await fetch(`/download/${filename}`);
+                const blob = await response.blob();
+                const file = new File([blob], filename, { type: blob.type });
+                
+                // Cập nhật file input
+                const dataTransfer = new DataTransfer();
+                dataTransfer.items.add(file);
+                document.getElementById('verifyFile').files = dataTransfer.files;
+                
+                // Cập nhật thông tin file
+                updateFileInfo(file);
+                
+                // Cuộn đến form xác thực
+                document.querySelector('.verify-section').scrollIntoView({ 
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+                
+                // Hiển thị thông báo
+                const verifyResult = document.getElementById('verifyResult');
+                verifyResult.innerHTML = `
+                    <div class="success-message">
+                        <i class="fas fa-check-circle"></i>
+                        Đã chọn file "${filename}" để xác thực. Vui lòng nhập chữ ký và public key.
+                    </div>
+                `;
+            } catch (error) {
+                console.error('Lỗi khi tải file:', error);
+                document.getElementById('verifyResult').innerHTML = `
+                    <div class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        Lỗi khi tải file: ${error.message}
+                    </div>
+                `;
+            }
+        }
+
+        // Tải danh sách file khi trang được tải
+        loadFileList();
+    </script>
+</body>
+</html> 
